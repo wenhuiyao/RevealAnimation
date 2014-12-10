@@ -35,6 +35,7 @@ public class RevealFrameLayout extends FrameLayout {
     private static final float ANIMATION_FULL_RATIO = 0.9f;
     private static final float CHILD_VIEW_ANIMATION_START_RATIO = 0.8F;
 
+
     public static interface OnRevealAnimationListener {
         public void onRevealStart();
         public void onRevealEnd();
@@ -49,14 +50,11 @@ public class RevealFrameLayout extends FrameLayout {
     private OnRevealAnimationListener mRevealListener;
     private int mState = STATE_NONE;
     private Paint mPaint;
-    private Paint mBackgroundPaint;
     private Drawable mTargetCallerDrawable;
     private Drawable mTargetDrawable;
     private ShapeHandler mShapeHandler;
     private Animator mRevealingAnimator;
     private int mExclusiveAnimatedViewId = 0;
-    private Bitmap mCache;
-    private boolean mCacheDirty = true;
 
     public RevealFrameLayout(Context context) {
         super(context);
@@ -74,19 +72,28 @@ public class RevealFrameLayout extends FrameLayout {
     }
 
     private void init(){
-//        if( Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2 ){
+        if( Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2 ){
             setLayerType(LAYER_TYPE_SOFTWARE, null);
-//        }
+        } else {
+            setBackgroundDrawable(null);
+            setWillNotDraw(false);
+        }
 
-        mPath = new Path();
-        mPaint = new Paint();
-        mPaint.setAntiAlias(true);
-        setWillNotDraw(false);
     }
 
     @Override
     public void draw(Canvas canvas) {
+        if( !canvas.isHardwareAccelerated() ){
+            mState = STATE_NOT_SET;
+            super.draw(canvas);
+            return;
+        }
+
         if( mState == STATE_NONE ){
+            mPath = new Path();
+            mPaint = new Paint();
+            mPaint.setAntiAlias(true);
+
             if( mInfo == null ){
                 Log.d(RevealFrameLayout.class.getName(), "Please call startRevealAnimation");
                 mInfo = getDefaultRevealInfo();
@@ -101,41 +108,11 @@ public class RevealFrameLayout extends FrameLayout {
             mState = STATE_ANIMATING;
             startRevealAnimationInternal();
             return;
+
         }
 
         if( mState == STATE_ANIMATING ) {
-
-            boolean shouldDraw = true;
-
-            if( !canvas.isHardwareAccelerated() ) {
-                // Draw with software layer
-                if( mCacheDirty ) {
-                    if( mCache == null ) {
-                        mCache = Bitmap.createBitmap(getMeasuredWidth(), getMeasuredHeight(), Bitmap.Config.ARGB_8888);
-                    }
-                    Canvas offscreenCanvas = new Canvas(mCache);
-                    super.draw(offscreenCanvas);
-                    mPaint.setShader(new BitmapShader(mCache, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP));
-                    if( mBackgroundPaint == null ) {
-                        mBackgroundPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-                    }
-                }
-
-                if( mCache != null ) {
-                    shouldDraw= false;
-                    mBackgroundPaint.setColor(mBackgroundColor);
-                    canvas.drawPath(mPath, mBackgroundPaint);
-                    canvas.drawPath(mPath, mPaint);
-                    if (mTargetCallerDrawable != null) {
-                        canvas.drawPath(mPath, mBackgroundPaint);
-                        mTargetCallerDrawable.draw(canvas);
-                    }
-                } else {
-                    shouldDraw = true;
-                }
-            }
-
-            if( shouldDraw ) {
+            if( canvas.isHardwareAccelerated() ) {
                 canvas.save(Canvas.CLIP_TO_LAYER_SAVE_FLAG);
                 canvas.clipPath(mPath);
                 canvas.drawColor(mBackgroundColor);
@@ -145,7 +122,6 @@ public class RevealFrameLayout extends FrameLayout {
                 super.draw(canvas);
                 canvas.restore();
             }
-
         } else {
             canvas.drawColor(mBackgroundColor);
             super.draw(canvas);
@@ -154,6 +130,9 @@ public class RevealFrameLayout extends FrameLayout {
 
     @Override
     public boolean isOpaque() {
+        if( isHardwareAccelerated() ){
+            return super.isOpaque();
+        }
         return Color.alpha(mBackgroundColor) >= 255;
     }
 
@@ -167,27 +146,46 @@ public class RevealFrameLayout extends FrameLayout {
 
     }
 
+    public boolean isAnimationRunning(){
+        return mState == STATE_ANIMATING;
+    }
+
+    public void setRevealAnimationInfo(RevealAnimationInfo info){
+        mInfo = info;
+    }
+
+    public void setTargetDrawable(Drawable drawable){
+        mTargetDrawable = drawable;
+    }
+
+    public void setExclusiveAnimatedViewId(int id){
+        mExclusiveAnimatedViewId = id;
+    }
+
+    /**
+     * This will be used when there is no animation
+     *
+     * @param backgroundColor
+     */
+    public void setBackgroundColor(int backgroundColor){
+        mBackgroundColor = backgroundColor;
+    }
+
+    public void setOnRevealAnimationListener(OnRevealAnimationListener l) {
+        mRevealListener = l;
+    }
+
     private void startRevealAnimationInternal(){
         ValueAnimator animator = ValueAnimator.ofFloat(0f, 1f);
         animator.setDuration(mInfo.mAnimationDuration);
         animator.setInterpolator(new BakedBezierInterpolator());
         animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
 
-            float lastUpdateFraction = 0f;
-
-            @TargetApi(Build.VERSION_CODES.KITKAT)
             @Override
             public void onAnimationUpdate(ValueAnimator animation) {
                 float animatedFraction = animation.getAnimatedFraction();
-                Log.d("RevealFrameLayout", "start: "+animatedFraction);
                 mBackgroundColor = blendColors(mInfo.mBackgroundColor, mInfo.mButtonColor, animatedFraction);
                 mPaint.setColor(mBackgroundColor);
-
-                if( !isHardwareAccelerated() && animatedFraction > lastUpdateFraction && animatedFraction <=
-                        lastUpdateFraction + .2f ){
-                    mCacheDirty = true;
-                    lastUpdateFraction = animatedFraction;
-                }
 
                 final float ratio = 1f- ANIMATION_FULL_RATIO;
                 if( mTargetDrawable != null && animatedFraction <=  ratio ) {
@@ -204,9 +202,11 @@ public class RevealFrameLayout extends FrameLayout {
         });
 
         setChildViewAlpha(0);
-        long animationDuration = (long)(mInfo.mAnimationDuration * CHILD_VIEW_ANIMATION_START_RATIO );
-        long delayed = mInfo.mAnimationDuration - animationDuration;
-        animateChildren(1, animationDuration, delayed);
+        if( isHardwareAccelerated() ) {
+            long animationDuration = (long) (mInfo.mAnimationDuration * CHILD_VIEW_ANIMATION_START_RATIO);
+            long delayed = mInfo.mAnimationDuration - animationDuration;
+            animateChildren(1, animationDuration, delayed);
+        }
 
         animator.addListener(new AnimatorListenerAdapter() {
             @Override
@@ -225,8 +225,6 @@ public class RevealFrameLayout extends FrameLayout {
                 if(mRevealListener != null ){
                     mRevealListener.onRevealEnd();
                 }
-
-                mCacheDirty = true;
 
             }
 
@@ -265,35 +263,6 @@ public class RevealFrameLayout extends FrameLayout {
         }
     }
 
-    public boolean isAnimationRunning(){
-        return mState == STATE_ANIMATING;
-    }
-
-    public void setRevealAnimationInfo(RevealAnimationInfo info){
-        mInfo = info;
-    }
-
-    public void setTargetDrawable(Drawable drawable){
-        mTargetDrawable = drawable;
-    }
-
-    public void setExclusiveAnimatedViewId(int id){
-        mExclusiveAnimatedViewId = id;
-    }
-
-    /**
-     * This will be used when there is no animation
-     *
-     * @param backgroundColor
-     */
-    public void setBackgroundColor(int backgroundColor){
-        mBackgroundColor = backgroundColor;
-    }
-
-    public void setOnRevealAnimationListener(OnRevealAnimationListener l) {
-        mRevealListener = l;
-    }
-
     public void closeView(){
         if( mState == STATE_NOT_SET || mState == STATE_NONE ){
             if( mRevealListener != null ){
@@ -317,7 +286,6 @@ public class RevealFrameLayout extends FrameLayout {
             @Override
             public void onAnimationUpdate(ValueAnimator animation) {
                 float animatedFraction = animation.getAnimatedFraction();
-                Log.d("RevealFrameLayout", "end: "+animatedFraction);
                 mBackgroundColor = blendColors(mInfo.mButtonColor, mInfo.mBackgroundColor, animatedFraction);
                 mPaint.setColor(mBackgroundColor);
 
@@ -333,8 +301,10 @@ public class RevealFrameLayout extends FrameLayout {
             }
         });
 
-        long animationDuration =(long)( mInfo.mAnimationDuration * CHILD_VIEW_ANIMATION_START_RATIO );
-        animateChildren(0, animationDuration, 0);
+        if( isHardwareAccelerated() ) {
+            long animationDuration = (long) (mInfo.mAnimationDuration * CHILD_VIEW_ANIMATION_START_RATIO);
+            animateChildren(0, animationDuration, 0);
+        }
 
         animator.addListener(new AnimatorListenerAdapter() {
 
