@@ -49,12 +49,14 @@ public class RevealFrameLayout extends FrameLayout {
     private OnRevealAnimationListener mRevealListener;
     private int mState = STATE_NONE;
     private Paint mPaint;
+    private Paint mBackgroundPaint;
     private Drawable mTargetCallerDrawable;
     private Drawable mTargetDrawable;
     private ShapeHandler mShapeHandler;
     private Animator mRevealingAnimator;
     private int mExclusiveAnimatedViewId = 0;
     private Bitmap mCache;
+    private boolean mCacheDirty = true;
 
     public RevealFrameLayout(Context context) {
         super(context);
@@ -72,10 +74,9 @@ public class RevealFrameLayout extends FrameLayout {
     }
 
     private void init(){
-        if( Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2 ){
+//        if( Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2 ){
             setLayerType(LAYER_TYPE_SOFTWARE, null);
-//            setDrawingCacheQuality(Bitmap.Config.ARGB_8888);
-        }
+//        }
 
         mPath = new Path();
         mPaint = new Paint();
@@ -104,7 +105,37 @@ public class RevealFrameLayout extends FrameLayout {
 
         if( mState == STATE_ANIMATING ) {
 
-            if( canvas.isHardwareAccelerated() ) {
+            boolean shouldDraw = true;
+
+            if( !canvas.isHardwareAccelerated() ) {
+                // Draw with software layer
+                if( mCacheDirty ) {
+                    if( mCache == null ) {
+                        mCache = Bitmap.createBitmap(getMeasuredWidth(), getMeasuredHeight(), Bitmap.Config.ARGB_8888);
+                    }
+                    Canvas offscreenCanvas = new Canvas(mCache);
+                    super.draw(offscreenCanvas);
+                    mPaint.setShader(new BitmapShader(mCache, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP));
+                    if( mBackgroundPaint == null ) {
+                        mBackgroundPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                    }
+                }
+
+                if( mCache != null ) {
+                    shouldDraw= false;
+                    mBackgroundPaint.setColor(mBackgroundColor);
+                    canvas.drawPath(mPath, mBackgroundPaint);
+                    canvas.drawPath(mPath, mPaint);
+                    if (mTargetCallerDrawable != null) {
+                        canvas.drawPath(mPath, mBackgroundPaint);
+                        mTargetCallerDrawable.draw(canvas);
+                    }
+                } else {
+                    shouldDraw = true;
+                }
+            }
+
+            if( shouldDraw ) {
                 canvas.save(Canvas.CLIP_TO_LAYER_SAVE_FLAG);
                 canvas.clipPath(mPath);
                 canvas.drawColor(mBackgroundColor);
@@ -113,26 +144,12 @@ public class RevealFrameLayout extends FrameLayout {
                 }
                 super.draw(canvas);
                 canvas.restore();
-            } else {
-                // Draw with software layer
-                if( mCache == null ) {
-                    mCache  =  getDrawingCache();
-                    if( mCache != null ) {
-                        mPaint.setShader(new BitmapShader(mCache, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP));
-                    }
-
-                    canvas.drawPath(mPath, mPaint);
-                }
             }
 
         } else {
             canvas.drawColor(mBackgroundColor);
             super.draw(canvas);
         }
-    }
-
-    private void drawRevealingHW(Canvas canvas){
-
     }
 
     @Override
@@ -155,12 +172,22 @@ public class RevealFrameLayout extends FrameLayout {
         animator.setDuration(mInfo.mAnimationDuration);
         animator.setInterpolator(new BakedBezierInterpolator());
         animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+
+            float lastUpdateFraction = 0f;
+
             @TargetApi(Build.VERSION_CODES.KITKAT)
             @Override
             public void onAnimationUpdate(ValueAnimator animation) {
                 float animatedFraction = animation.getAnimatedFraction();
+                Log.d("RevealFrameLayout", "start: "+animatedFraction);
                 mBackgroundColor = blendColors(mInfo.mBackgroundColor, mInfo.mButtonColor, animatedFraction);
                 mPaint.setColor(mBackgroundColor);
+
+                if( !isHardwareAccelerated() && animatedFraction > lastUpdateFraction && animatedFraction <=
+                        lastUpdateFraction + .2f ){
+                    mCacheDirty = true;
+                    lastUpdateFraction = animatedFraction;
+                }
 
                 final float ratio = 1f- ANIMATION_FULL_RATIO;
                 if( mTargetDrawable != null && animatedFraction <=  ratio ) {
@@ -198,6 +225,8 @@ public class RevealFrameLayout extends FrameLayout {
                 if(mRevealListener != null ){
                     mRevealListener.onRevealEnd();
                 }
+
+                mCacheDirty = true;
 
             }
 
@@ -284,17 +313,19 @@ public class RevealFrameLayout extends FrameLayout {
         });
 
         animator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+
             @Override
             public void onAnimationUpdate(ValueAnimator animation) {
                 float animatedFraction = animation.getAnimatedFraction();
+                Log.d("RevealFrameLayout", "end: "+animatedFraction);
                 mBackgroundColor = blendColors(mInfo.mButtonColor, mInfo.mBackgroundColor, animatedFraction);
-
                 mPaint.setColor(mBackgroundColor);
+
                 if( mTargetDrawable != null && animatedFraction > ANIMATION_FULL_RATIO ) {
                     float ratio = 1f - ANIMATION_FULL_RATIO;
-                    float alpha = 255f * ( 1f - ( 1f - animatedFraction ) / ratio ) ;
+                    int alpha = (int)(255f * ( 1f - ( 1f - animatedFraction ) / ratio )) ;
                     mTargetCallerDrawable = mTargetDrawable;
-                    mTargetCallerDrawable.setAlpha((int)alpha);
+                    mTargetCallerDrawable.setAlpha(alpha);
                 }
 
                 mShapeHandler.handleClosing(mPath, animatedFraction);
@@ -302,7 +333,7 @@ public class RevealFrameLayout extends FrameLayout {
             }
         });
 
-        long animationDuration =(long)( mInfo.mAnimationDuration * CHILD_VIEW_ANIMATION_START_RATIO);
+        long animationDuration =(long)( mInfo.mAnimationDuration * CHILD_VIEW_ANIMATION_START_RATIO );
         animateChildren(0, animationDuration, 0);
 
         animator.addListener(new AnimatorListenerAdapter() {
