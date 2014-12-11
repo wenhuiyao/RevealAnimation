@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package demo.reveal.wenhui.com.revealanimation.reveal;
+package demo.reveal.wenhui.com.library;
 
 import android.view.animation.Interpolator;
 

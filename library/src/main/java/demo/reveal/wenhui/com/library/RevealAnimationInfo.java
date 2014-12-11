@@ -1,4 +1,4 @@
-package demo.reveal.wenhui.com.revealanimation.reveal;
+package demo.reveal.wenhui.com.library;
 
 import android.content.Context;
 import android.content.res.Resources;

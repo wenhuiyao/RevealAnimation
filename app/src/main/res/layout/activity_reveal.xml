@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<demo.reveal.wenhui.com.revealanimation.reveal.RevealFrameLayout
+<demo.reveal.wenhui.com.library.RevealFrameLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/revealContainer"
     android:layout_width="match_parent"
@@ -25,4 +25,4 @@
         android:layout_gravity="bottom"
         android:text="Golden Gate Bridge, taking at the late afternoon."/>
 
-</demo.reveal.wenhui.com.revealanimation.reveal.RevealFrameLayout>
+</demo.reveal.wenhui.com.library.RevealFrameLayout>

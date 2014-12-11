@@ -8,6 +8,8 @@ import android.os.Bundle;
 import android.view.View;
 import android.widget.ImageView;
 import com.squareup.picasso.Picasso;
+import demo.reveal.wenhui.com.library.RevealAnimationInfo;
+import demo.reveal.wenhui.com.library.RevealFrameLayout;
 import demo.reveal.wenhui.com.revealanimation.R;
 
 /**

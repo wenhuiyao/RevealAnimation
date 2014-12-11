@@ -1,4 +1,4 @@
-package demo.reveal.wenhui.com.revealanimation.reveal;
+package demo.reveal.wenhui.com.library;
 
 import android.graphics.Path;
 import android.graphics.RectF;
