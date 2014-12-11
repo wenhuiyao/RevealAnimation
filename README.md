@@ -10,7 +10,7 @@ Require SDK v15 and above.
 ### KNOW ISSUE: <br/>
 
 1. Some devices, such as certain version Samsung Galaxy S4 running 4.4.2 that doesn't support clip path hardware acceleration. 
-2. It requires HardWare acceleration to work.
+2. Software rendering doesn't work well, so if devices that is below 18, it will show no animation.
 
 
 
