@@ -5,6 +5,8 @@
 
     <TextView android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginTop="350dp"
+        android:layout_marginLeft="39dp"
         android:text="some text right here"/>
 
     <demo.reveal.wenhui.com.revealanimation.reveal.CircularView
@@ -20,7 +22,7 @@
         android:layout_width="250dp"
         android:layout_height="150dp"
         android:layout_marginTop="80dp"
-        android:layout_marginLeft="80dp"
+        android:layout_marginLeft="40dp"
         android:scaleType="centerCrop"/>
 
 </merge>

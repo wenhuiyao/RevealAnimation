@@ -13,7 +13,6 @@
         android:layout_height="match_parent"
         android:scaleType="fitCenter"/>
 
-
     <TextView
         android:id="@+id/text"
         android:layout_width="match_parent"
@@ -24,6 +23,6 @@
         android:textColor="@android:color/white"
         android:textSize="18sp"
         android:layout_gravity="bottom"
-        android:text="Golden Gate bridge, take at the late afternoon."/>
+        android:text="Golden Gate Bridge, taking at the late afternoon."/>
 
 </demo.reveal.wenhui.com.revealanimation.reveal.RevealFrameLayout>

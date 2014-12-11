@@ -45,10 +45,8 @@ public class RectRevealActivity extends Activity {
         mRevealFrameLayout = (RevealFrameLayout)findViewById(R.id.activity_rect_revealContainer);
         mRevealFrameLayout.setOnRevealAnimationListener(mOnRevealAnimationListener);
         mRevealFrameLayout.setBackgroundColor(Color.BLACK);
-//        mRevealFrameLayout.setExclusiveAnimatedViewId(R.id.activity_rect_reveal_image);
 
         Picasso.with(this).load(LauncherActivity.IMAGE_URL).into(imageView);
-//
         Intent intent = getIntent();
         info = intent.getParcelableExtra(EXTRA_INFO);
         mRevealFrameLayout.setRevealAnimationInfo(info);
