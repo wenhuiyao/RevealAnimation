@@ -1,4 +1,4 @@
-RevealAnimation
+(Deprecated)RevealAnimation
 ===============
 
 Implement reveal animation that is similar to the one in Lollipop.<br/>
